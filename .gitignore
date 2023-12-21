@@ -1,4 +1,2 @@
-backend/__pycache__/*
-backend/**/__pycache__
+**/__pycache__
 **/.env
-frontend/el-rastro/.env.local
