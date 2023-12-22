@@ -379,6 +379,41 @@ def delete_product(id: str, token: dict = Depends(get_token)):
         raise HTTPException(status_code=400, detail="Invalid ObjectId format")
 
 
+# Get the products that the user has bid on divided if the user has won or not or if the product is still open
+@app.get(
+    "/" + versionRoute + "/products/bids",
+    summary="Get the products that the user has bid on divided if the user has won or not or if the product is still open",
+    response_description="List of products that the user has bid on divided if the user has won or not or if the product is still open",
+    response_model=ProductsResponse,
+    responses={400: errors.error_400, 422: errors.error_422},
+)
+def get_products_bids(token: dict = Depends(get_token)):
+    try:
+        products = {"open": [], "won": [], "lost": []}
+        id = token["id"]
+        
+        products_cursor = db.Product.aggregate(
+            [
+                {"$match": {"bids.bidder._id": ObjectId(id)}},
+                {"$sort": {"closeDate": 1}},
+            ]
+        )
+        
+        if products_cursor is not None:
+            for document in products_cursor:
+                product = Product(**document)
+                if product.buyer is None:
+                    products["open"].append(product)
+                elif product.buyer.id == id:
+                    products["won"].append(product)
+                else:
+                    products["lost"].append(product)
+                    
+        return products
+
+    except InvalidId as e:
+        raise HTTPException(status_code=400, detail="Invalid ObjectId format")
+
 # Get one product
 @app.get(
     "/" + versionRoute + "/products/{id}",
@@ -422,41 +457,6 @@ def get_related_products(id: str):
     except InvalidId as e:
         raise HTTPException(status_code=400, detail="Invalid ObjectId format")
 
-
-# Get the products that the user has bid on divided if the user has won or not or if the product is still open
-@app.get(
-    "/" + versionRoute + "/products/bids",
-    summary="Get the products that the user has bid on divided if the user has won or not or if the product is still open",
-    response_description="List of products that the user has bid on divided if the user has won or not or if the product is still open",
-    response_model=ProductsResponse,
-    responses={400: errors.error_400, 422: errors.error_422},
-)
-def get_products_bids(token: dict = Depends(get_token)):
-    try:
-        products = {"open": [], "won": [], "lost": []}
-        id = token["id"]
-        
-        products_cursor = db.Product.aggregate(
-            [
-                {"$match": {"bids.bidder._id": ObjectId(id)}},
-                {"$sort": {"closeDate": 1}},
-            ]
-        )
-        
-        if products_cursor is not None:
-            for document in products_cursor:
-                product = Product(**document)
-                if product.buyer is None:
-                    products["open"].append(product)
-                elif product.buyer.id == id:
-                    products["won"].append(product)
-                else:
-                    products["lost"].append(product)
-                    
-        return products
-
-    except InvalidId as e:
-        raise HTTPException(status_code=400, detail="Invalid ObjectId format")
 
 # Get the number of products sold by a user
 @app.get(
